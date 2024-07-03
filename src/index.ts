@@ -1,15 +1,18 @@
 class Websocket {
-  private ws: WebSocket;
+  public raw: WebSocket;
 
-  private events: { event: string; handler: (message?: unknown) => {} }[] = [];
-  private eventOpen = (event: Event) => {};
-  private eventClose = (event: CloseEvent) => {};
-  private eventError = (event: Event) => {};
+  private events: { event: string; handler: (message: unknown) => void }[] = [];
+  private sends: string[] = [];
+
+  public isConnected: boolean = false;
+  private connect = (event: Event) => {};
+  private disconnect = (event: CloseEvent) => {};
+  private error = (event: Event) => {};
 
   constructor(url: string) {
-    this.ws = new WebSocket(url);
+    this.raw = new WebSocket(url);
 
-    this.ws.addEventListener("message", (event) => {
+    this.raw.addEventListener("message", (event) => {
       if (this.events.length > 0) {
         try {
           const msg = JSON.parse(event.data) as { event: string; message: unknown };
@@ -20,33 +23,44 @@ class Websocket {
       }
     });
 
-    this.ws.addEventListener("open", this.eventOpen);
-    this.ws.addEventListener("close", this.eventClose);
-    this.ws.addEventListener("error", this.eventError);
+    this.raw.addEventListener("open", (event) => {
+      this.isConnected = true;
+      this.sends.forEach((item) => this.raw.send(item));
+      this.connect(event);
+    });
+    this.raw.addEventListener("close", (event) => {
+      this.isConnected = false;
+      this.disconnect(event);
+    });
+    this.raw.addEventListener("error", this.error);
   }
 
   send(event: string, message?: unknown) {
-    this.ws.send(JSON.stringify({ event, message }));
+    if (this.isConnected) {
+      this.raw.send(JSON.stringify({ event, message }));
+    } else {
+      this.sends.push(JSON.stringify({ event, message }));
+    }
   }
 
-  on(event: string, callback: (message?: unknown) => {}) {
+  on(event: string, callback: (message: unknown) => void) {
     this.events.push({ event, handler: callback });
   }
 
-  onOpen(callback: (event: Event) => void) {
-    this.eventOpen = callback;
+  onConnect(callback: (event: Event) => void) {
+    this.connect = callback;
   }
 
-  onClose(callback: (event: CloseEvent) => void) {
-    this.eventClose = callback;
+  onDisconnect(callback: (event: CloseEvent) => void) {
+    this.disconnect = callback;
   }
 
   onError(callback: (event: Event) => void) {
-    this.eventError = callback;
+    this.error = callback;
   }
 
   close() {
-    this.ws.close();
+    this.raw.close();
   }
 }
 
