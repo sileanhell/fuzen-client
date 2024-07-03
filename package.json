@@ -1,0 +1,26 @@
+{
+  "name": "fuzen-client",
+  "version": "1.0.1",
+  "description": "Client for Fuzen Server.",
+  "author": "CARZI & AWGsh",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sileanhell/fuzen-client.git"
+  },
+  "scripts": {
+    "dev": "nodemon --watch src --ext ts --exec tsc",
+    "prepublishOnly": "rimraf dist && tsc"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4",
+    "rimraf": "^5.0.7",
+    "typescript": "^5.5.2"
+  }
+}
