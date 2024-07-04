@@ -1,8 +1,8 @@
 class Websocket {
   public raw: WebSocket;
 
-  private events: { event: string; handler: (message: unknown) => void }[] = [];
-  private sends: string[] = [];
+  private events: Map<string, (message: unknown) => void> = new Map();
+  private sends: Set<string> = new Set();
 
   public isConnected: boolean = false;
   private connect = (event: Event) => {};
@@ -10,15 +10,14 @@ class Websocket {
   private error = (event: Event) => {};
 
   constructor(url: string) {
-    this.raw = new WebSocket(url);
+    this.raw = new WebSocket(url, "Fuzen");
 
     this.raw.addEventListener("message", (event) => {
-      if (this.events.length > 0) {
+      if (this.events.size > 0) {
         try {
           const msg = JSON.parse(event.data) as { event: string; message: unknown };
-          this.events.forEach((event) => {
-            if (event.event === msg.event) event.handler(msg.message);
-          });
+          const element = this.events.get(msg.event);
+          if (element) element(msg.message);
         } catch {}
       }
     });
@@ -26,6 +25,7 @@ class Websocket {
     this.raw.addEventListener("open", (event) => {
       this.isConnected = true;
       this.sends.forEach((item) => this.raw.send(item));
+      this.sends.clear();
       this.connect(event);
     });
     this.raw.addEventListener("close", (event) => {
@@ -39,12 +39,34 @@ class Websocket {
     if (this.isConnected) {
       this.raw.send(JSON.stringify({ event, message }));
     } else {
-      this.sends.push(JSON.stringify({ event, message }));
+      this.sends.add(JSON.stringify({ event, message }));
     }
   }
 
   on(event: string, callback: (message: unknown) => void) {
-    this.events.push({ event, handler: callback });
+    const isExist = this.events.get(event);
+
+    if (!isExist) {
+      this.events.set(event, callback);
+    } else {
+      console.error(`You are trying to listen to the \'${event}\' event twice.\nOff the old listener before using the new one.`);
+    }
+  }
+
+  off(event: string) {
+    const isExist = this.events.get(event);
+    if (isExist) this.events.delete(event);
+    return !!isExist;
+  }
+
+  onResponse(event: string, message?: unknown) {
+    return new Promise((resolve) => {
+      this.events.set(event, (message) => {
+        this.events.delete(event);
+        resolve(message);
+      });
+      this.send(event, message);
+    });
   }
 
   onConnect(callback: (event: Event) => void) {
